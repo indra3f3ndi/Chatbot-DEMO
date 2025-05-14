@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chatbot AI</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap');
+
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f7f8fa;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            padding: 0 20px;
+        }
+        #chat-container {
+            width: 100%;
+            max-width: 600px;
+            background: #ffffff;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+        }
+        #chatbox {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            display: flex;
+            flex-direction: column;
+        }
+        #chatbox .message {
+            display: flex;
+            align-items: flex-end;
+            margin-bottom: 10px;
+            opacity: 0;
+            animation: fadeInUp 0.5s forwards;
+        }
+        #chatbox .message.bot {
+            justify-content: flex-start;
+        }
+        #chatbox .message.user {
+            justify-content: flex-end;
+        }
+        #chatbox .message .content {
+            max-width: 75%;
+            padding: 12px 20px;
+            border-radius: 20px;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        #chatbox .message.bot .content {
+            background-color: #f1f1f1;
+            color: #333;
+        }
+        #chatbox .message.user .content {
+            background-color: #4a90e2;
+            color: #fff;
+        }
+        @keyframes fadeInUp {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        #input-container {
+            display: flex;
+            padding: 15px;
+            background: #f7f8fa;
+            border-top: 1px solid #eaeaea;
+        }
+        #user-input {
+            flex: 1;
+            padding: 12px 15px;
+            background: #f1f1f1;
+            border: none;
+            border-radius: 20px;
+            color: #333;
+            outline: none;
+            font-size: 15px;
+        }
+        #send-button {
+            padding: 10px 20px;
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-left: 10px;
+            font-size: 15px;
+            transition: background-color 0.3s ease;
+        }
+        #send-button:hover {
+            background-color: #357ABD;
+        }
+        .typing-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px 0;
+        }
+        .typing-indicator div {
+            background-color: #c0c0c0;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin: 0 3px;
+            animation: blink 0.8s infinite;
+        }
+        .typing-indicator div:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator div:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes blink {
+            0%, 100% {
+                opacity: 0.2;
+            }
+            50% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="chat-container">
+        <div id="chatbox"></div>
+        <div id="input-container">
+            <input type="text" id="user-input" placeholder="Silakan ketik pertanyaan Anda...">
+            <button id="send-button" onclick="sendQuestion()">Kirim</button>
+        </div>
+    </div>
+
+    <script>
+        let currentQuestion = '';
+
+        document.getElementById('user-input').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Mencegah form input bergerak ke bawah
+                sendQuestion();
+            }
+        });
+
+        function sendQuestion() {
+            const input = document.getElementById('user-input').value;
+            const chatbox = document.getElementById('chatbox');
+
+            if (input) {
+                chatbox.innerHTML += `
+                    <div class="message user">
+                        <div class="content">${input}</div>
+                    </div>`;
+                chatbox.scrollTop = chatbox.scrollHeight;
+                currentQuestion = input;
+
+                document.getElementById('user-input').value = '';
+
+                // Tampilkan indikator mengetik
+                showTypingIndicator();
+
+                setTimeout(() => {
+                    fetch('chatbot.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
+                        body: 'question=' + encodeURIComponent(input)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Hapus indikator mengetik
+                        hideTypingIndicator();
+
+                        // Tampilkan jawaban dengan efek mengetik per huruf
+                        typeWriter(data.answer, chatbox);
+                    });
+                }, 100);  // Simulasi waktu mengetik
+            }
+        }
+
+        function showTypingIndicator() {
+            const chatbox = document.getElementById('chatbox');
+            chatbox.innerHTML += `
+                <div class="message bot typing-indicator">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                </div>`;
+            chatbox.scrollTop = chatbox.scrollHeight;
+        }
+
+        function hideTypingIndicator() {
+            const typingIndicators = document.querySelectorAll('.typing-indicator');
+            typingIndicators.forEach(indicator => indicator.remove());
+        }
+
+        function typeWriter(text, chatbox) {
+            let i = 0;
+            const speed = 30;  // Kecepatan mengetik dalam milidetik
+
+            // Buat elemen baru untuk teks bot
+            const botMessageElement = document.createElement('div');
+            botMessageElement.classList.add('message', 'bot');
+            const botMessageText = document.createElement('div');
+            botMessageText.classList.add('content');
+            botMessageElement.appendChild(botMessageText);
+            chatbox.appendChild(botMessageElement);
+
+            function type() {
+                if (i < text.length) {
+                    botMessageText.innerHTML += text.charAt(i);
+                    i++;
+                    setTimeout(type, speed);
+                }
+                chatbox.scrollTop = chatbox.scrollHeight;
+            }
+            type();
+        }
+    </script>
+</body>
+</html>
